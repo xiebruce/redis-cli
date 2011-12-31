@@ -1,0 +1,9 @@
+Redis Cli is a web redis command-line interface like redis-cli!
+
+The default login account:
+
+Username: redis
+Password: password
+
+You must change the account when use in production server!
+
