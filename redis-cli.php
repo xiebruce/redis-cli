@@ -467,7 +467,7 @@ if (!isset($_SERVER['PHP_AUTH_USER']) || !isset($_SERVER['PHP_AUTH_PW']) || $_SE
                 }
                 $dataStr .='</ol>';
                 if (strcasecmp($tokenArr[0], 'keys') === 0 && isset($tokenArr[2])) {
-                    $dataStr .= '<ul><li>' . implode(' ', $replyArr[1]) . '</li></ul>';
+                    $dataStr .= '<ul><li>"' . implode('" "', $replyArr[1]) . '"</li></ul>';
                 }
             }
             break;
