@@ -381,6 +381,24 @@ class RedisCli {
     }
 
     /**
+     * string to binary
+     * @param string $str
+     * @return string
+     */
+    public static function str2bin($str) {
+        if (!is_string($str)) {
+            return '';
+        }
+        $len = strlen($str);
+        $index = 0;
+        $binStr = '';
+        while ($index < $len) {
+            $binStr .= sprintf('%08b', ord($str[$index++]));
+        }
+        return $binStr;
+    }
+
+    /**
      * output error message and exit
      * @param string $msg
      */
@@ -429,6 +447,8 @@ if (!isset($_SERVER['PHP_AUTH_USER']) || !isset($_SERVER['PHP_AUTH_PW']) || $_SE
                 $dataStr = '(nil)';
             } else if (strcasecmp($tokenArr[0], 'info') === 0) {
                 $dataStr = '<pre>' . $replyArr[1] . '</pre>';
+            } else if (strcasecmp($tokenArr[0], 'get') === 0 && isset($tokenArr[2])) {
+                $dataStr = '"' . RedisCli::str2bin($replyArr[1]) . '"';
             } else {
                 $dataStr = '"' . RedisCli::addSlashes($replyArr[1]) . '"';
             }
