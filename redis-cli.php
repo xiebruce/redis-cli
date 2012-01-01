@@ -504,7 +504,7 @@ EOT;
         </style>
     </head>
     <body>
-        <h4><font colore="blue">Thanks for using Redis Cli!</font></h4>
+        <h4><font colore="blue">Thanks for using <a href="https://github.com/lixianlin/redis-cli" target="_blank">Redis Cli</a>!</font></h4>
         <h5>&nbsp;</h5>
         <h5>You can visit <a href="http://redis.io/" target="_blank">http://redis.io/</a> to get the lastest news about redis!</h5>
         <h5>For security reason, some command are disabled.</h5>
