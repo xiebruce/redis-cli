@@ -217,7 +217,7 @@ class RedisCli {
     public function parseRawCommand($str) {
         $index = 0;
         $len = strlen($str);
-        $inQuote = false;
+        $inDoubleQuotes = false;
         $tokenArr = array();
         $token = '';
         while (true) {
@@ -228,17 +228,45 @@ class RedisCli {
                 break;
             }
             $char = $str[$index];
-            if ($char === '"') {
-                if ($inQuote && $index >= 1 && $str[$index - 1] === '\\') {
-                    $token .= $char;
-                } else if ($inQuote) {
-                    $tokenArr[] = str_replace('\"', '"', $token);
-                    $token = '';
-                    $inQuote = false;
-                } else {
-                    $inQuote = true;
+            if ($char === '\\' && $inDoubleQuotes && isset($str[$index + 1])) {
+                ++$index;
+                switch ($str[$index]) {
+                    case 'x':
+                        if (isset($str[$index + 2]) && ctype_xdigit($str[$index + 1]) && ctype_xdigit($str[$index + 2])) {
+                            $token .= chr(base_convert(substr($str, $index + 1, 2), 16, 10));
+                            $index += 2;
+                        } else {
+                            $token .= 'x';
+                        }
+                        break;
+                    case 'n':
+                        $token .= "\n";
+                        break;
+                    case 'r':
+                        $token .= "\r";
+                        break;
+                    case 't':
+                        $token .= "\t";
+                        break;
+                    case 'a':
+                        $token .= "\x07";
+                        break;
+                    case 'b':
+                        $token .= "\x08";
+                        break;
+                    default:
+                        $token .= $str[$index];
+                        break;
                 }
-            } else if (in_array($char, array(' ', "\t")) && !$inQuote) {
+            } else if ($char === '"') {
+                if ($inDoubleQuotes) {
+                    $tokenArr[] = $token;
+                    $token = '';
+                    $inDoubleQuotes = false;
+                } else {
+                    $inDoubleQuotes = true;
+                }
+            } else if (ctype_space($char) && !$inDoubleQuotes) {
                 if ($token !== '') {
                     $tokenArr[] = $token;
                     $token = '';
