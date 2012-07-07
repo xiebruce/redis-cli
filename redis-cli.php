@@ -316,61 +316,70 @@ class RedisCli {
         if (fwrite($this->_fp, $command) === false) {
             $this->error('Failed write content to stream!');
         }
-        $replyType = fgetc($this->_fp);
-        if ($replyType === false) {
-            return array('?', '');
-        }
-        $replyData = '';
-        switch ($replyType) {
-            case '+':
-                $replyData = substr(fgets($this->_fp), 0, -2);
+        return $this->__readReply($this->_fp);
+    }
+
+    /**
+     * read reply
+     * @param resource $fp
+     * @return array
+     */
+    private function __readReply($fp) {
+        $type = fgetc($fp);
+        switch ($type) {
+            case '+': // a single line reply
+                $val = substr(fgets($fp), 0, -2);
                 break;
-            case '-':
-                $replyData = substr(fgets($this->_fp), 0, -2);
+            case '-': // error message
+                $val = substr(fgets($fp), 0, -2);
+                $val = false;
                 break;
-            case ':':
-                $replyData = substr(fgets($this->_fp), 0, -2);
+            case ':': // integer number
+                $val = intval(substr(fgets($fp), 0, -2));
                 break;
-            case '$':
-                $replyData = $this->__readBulkData($this->_fp);
+            case '$': // bulk reply
+                $val = $this->__readBulkData($fp);
                 break;
-            case '*':
-                $bulkCount = intval(trim(fgets($this->_fp)));
-                $replyData = array();
+            case '*': // multi-bulk reply
+                $bulkCount = intval(substr(fgets($fp), 0, -2));
+                $val = array();
                 for ($i = 0; $i < $bulkCount; ++$i) {
-                    fseek($this->_fp, 1, SEEK_CUR); // skip "$"
-                    $replyData[] = $this->__readBulkData($this->_fp);
+                    $retArr = call_user_func_array(array($this, __METHOD__), array($fp));
+                    $val[] = $retArr[1];
                 }
                 break;
+            default:
+                throw new Exception('Redis:unknown reply type!');
         }
-        return array($replyType, $replyData);
+        return array($type, $val);
     }
 
     /**
      * read bulk data
+     * @param resource $fp
      * @return string
      */
     private function __readBulkData($fp) {
         $bulkLen = intval(rtrim(fgets($fp)));
         if ($bulkLen === 0) {
-            $dataStr = '';
+            $val = '';
             fseek($fp, 2, SEEK_CUR); // skip "\r\n"
         } else if ($bulkLen > 0) {
-            $dataStr = '';
+            $val = '';
             do {
                 if ($bulkLen >= 8192) {
-                    $dataStr .= fread($fp, 8192);
+                    $val .= fread($fp, 8192);
                     $bulkLen -= 8192;
                 } else {
-                    $dataStr .= fread($fp, $bulkLen);
+                    $val .= fread($fp, $bulkLen);
                     break;
                 }
             } while ($bulkLen > 0);
             fseek($fp, 2, SEEK_CUR); // skip "\r\n"
         } else {
-            $dataStr = NULL; // undefined
+            $val = NULL; // undefined
         }
-        return $dataStr;
+        return $val;
     }
 
     /**
@@ -384,24 +393,33 @@ class RedisCli {
         $ret = '';
         while ($index < $len) {
             $char = $str[$index];
-            if ($char === '\\') {
-                $ret .= '\\\\';
-            } else if ($char === '"') {
-                $ret .= '\\"';
-            } else if ($char === "\n") {
-                $ret .= '\\n';
-            } else if ($char === "\r") {
-                $ret .= '\\r';
-            } else if ($char === "\t") {
-                $ret .= '\\t';
-            } else if ($char === "\a") {
-                $ret .= '\\a';
-            } else if ($char === "\b") {
-                $ret .= '\\b';
-            } else if (ctype_print($char)) {
-                $ret .= $char;
-            } else {
-                $ret .= sprintf('\\x%02x', ord($char));
+            switch ($char) {
+                case '\\':
+                case '"':
+                    $ret .= '\\' . $char;
+                    break;
+                case "\n":
+                    $ret .= '\\n';
+                    break;
+                case "\r";
+                    $ret .= '\\r';
+                    break;
+                case "\t":
+                    $ret .= '\\t';
+                    break;
+                case "\x07":
+                    $ret .= '\\a';
+                    break;
+                case "\x08":
+                    $ret .= '\\b';
+                    break;
+                default:
+                    if (ctype_print($char)) {
+                        $ret .= $char;
+                    } else {
+                        $ret .= sprintf('\\x%02x', ord($char));
+                    }
+                    break;
             }
             ++$index;
         }
@@ -443,7 +461,7 @@ class RedisCli {
 }
 
 if (!isset($_SERVER['PHP_AUTH_USER']) || !isset($_SERVER['PHP_AUTH_PW']) || $_SERVER['PHP_AUTH_USER'] !== ADMIN_USERNAME || md5($_SERVER['PHP_AUTH_PW']) !== ADMIN_PASSWORD) {
-    header('WWW-Authenticate: Basic realm="Redis Cli Login"');
+    header('WWW-Authenticate: Basic realm="Login"');
     header('HTTP/1.1 401 Unauthorized');
     exit('Please login first!');
 } else if (isset($_GET['do']) && $_GET['do'] === 'exec' && !empty($_POST)) {
